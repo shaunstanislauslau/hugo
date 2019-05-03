@@ -16,7 +16,6 @@ package page
 import (
 	"fmt"
 	"html/template"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -65,6 +64,7 @@ func newTestPathSpec() *helpers.PathSpec {
 
 func newTestPathSpecFor(cfg config.Provider) *helpers.PathSpec {
 	config.SetBaseTestDefaults(cfg)
+	langs.LoadLanguageSettings(cfg, nil)
 	fs := hugofs.NewMem(cfg)
 	s, err := helpers.NewPathSpec(fs, cfg)
 	if err != nil {
@@ -189,7 +189,7 @@ func (p *testPage) File() source.File {
 	return p.file
 }
 
-func (p *testPage) FileInfo() os.FileInfo {
+func (p *testPage) FileInfo() hugofs.FileMetaInfo {
 	panic("not implemented")
 }
 

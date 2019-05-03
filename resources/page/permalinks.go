@@ -91,6 +91,7 @@ func (l PermalinkExpander) parse(patterns map[string]string) (map[string]func(Pa
 	expanders := make(map[string]func(Page) (string, error))
 
 	for k, pattern := range patterns {
+		k = strings.TrimSpace(k)
 		if !l.validate(pattern) {
 			return nil, &permalinkExpandError{pattern: pattern, err: errPermalinkIllFormed}
 		}

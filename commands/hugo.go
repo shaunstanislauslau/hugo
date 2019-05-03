@@ -28,7 +28,6 @@ import (
 
 	"github.com/gohugoio/hugo/resources/page"
 
-	"github.com/gohugoio/hugo/common/hugo"
 	"github.com/pkg/errors"
 
 	"github.com/gohugoio/hugo/common/herrors"
@@ -49,7 +48,6 @@ import (
 
 	"github.com/gohugoio/hugo/config"
 
-	"github.com/gohugoio/hugo/parser/metadecoders"
 	flag "github.com/spf13/pflag"
 
 	"github.com/fsnotify/fsnotify"
@@ -196,6 +194,7 @@ func initializeFlags(cmd *cobra.Command, cfg config.Provider) {
 		"forceSyncStatic",
 		"noTimes",
 		"noChmod",
+		"ignoreVendor",
 		"templateMetrics",
 		"templateMetricsHints",
 
@@ -309,12 +308,8 @@ func (c *commandeer) fullBuild() error {
 
 		cnt, err := c.copyStatic()
 		if err != nil {
-			if !os.IsNotExist(err) {
-				return errors.Wrap(err, "Error copying static files")
-			}
-			c.logger.INFO.Println("No Static directory found")
+			return errors.Wrap(err, "Error copying static files")
 		}
-		langCount = cnt
 		langCount = cnt
 		return nil
 	}
@@ -547,7 +542,11 @@ func (c *commandeer) serverBuild() error {
 }
 
 func (c *commandeer) copyStatic() (map[string]uint64, error) {
-	return c.doWithPublishDirs(c.copyStaticTo)
+	m, err := c.doWithPublishDirs(c.copyStaticTo)
+	if err == nil || os.IsNotExist(err) {
+		return m, nil
+	}
+	return m, err
 }
 
 func (c *commandeer) doWithPublishDirs(f func(sourceFs *filesystems.SourceFilesystem) (uint64, error)) (map[string]uint64, error) {
@@ -566,6 +565,7 @@ func (c *commandeer) doWithPublishDirs(f func(sourceFs *filesystems.SourceFilesy
 		if err != nil {
 			return langCount, err
 		}
+
 		if lang == "" {
 			// Not multihost
 			for _, l := range c.languages {
@@ -609,7 +609,8 @@ func (c *commandeer) copyStaticTo(sourceFs *filesystems.SourceFilesystem) (uint6
 
 	syncer := fsync.NewSyncer()
 	syncer.NoTimes = c.Cfg.GetBool("noTimes")
-	syncer.NoChmod = c.Cfg.GetBool("noChmod")
+	// TODO(bep) mod Go module cache has 0555 directories.
+	syncer.NoChmod = true // c.Cfg.GetBool("noChmod")
 	syncer.SrcFs = fs
 	syncer.DestFs = c.Fs.Destination
 	// Now that we are using a unionFs for the static directories
@@ -652,120 +653,40 @@ func (c *commandeer) timeTrack(start time.Time, name string) {
 
 // getDirList provides NewWatcher() with a list of directories to watch for changes.
 func (c *commandeer) getDirList() ([]string, error) {
-	var a []string
+	var dirnames []string
 
-	// To handle nested symlinked content dirs
-	var seen = make(map[string]bool)
-	var nested []string
-
-	newWalker := func(allowSymbolicDirs bool) func(path string, fi os.FileInfo, err error) error {
-		return func(path string, fi os.FileInfo, err error) error {
-			if err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
-
-				c.logger.ERROR.Println("Walker: ", err)
-				return nil
-			}
-
-			// Skip .git directories.
-			// Related to https://github.com/gohugoio/hugo/issues/3468.
-			if fi.Name() == ".git" {
-				return nil
-			}
-
-			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-				link, err := filepath.EvalSymlinks(path)
-				if err != nil {
-					c.logger.ERROR.Printf("Cannot read symbolic link '%s', error was: %s", path, err)
-					return nil
-				}
-				linkfi, err := helpers.LstatIfPossible(c.Fs.Source, link)
-				if err != nil {
-					c.logger.ERROR.Printf("Cannot stat %q: %s", link, err)
-					return nil
-				}
-				if !allowSymbolicDirs && !linkfi.Mode().IsRegular() {
-					c.logger.ERROR.Printf("Symbolic links for directories not supported, skipping %q", path)
-					return nil
-				}
-
-				if allowSymbolicDirs && linkfi.IsDir() {
-					// afero.Walk will not walk symbolic links, so wee need to do it.
-					if !seen[path] {
-						seen[path] = true
-						nested = append(nested, path)
-					}
-					return nil
-				}
-
-				fi = linkfi
-			}
-
-			if fi.IsDir() {
-				if fi.Name() == ".git" ||
-					fi.Name() == "node_modules" || fi.Name() == "bower_components" {
-					return filepath.SkipDir
-				}
-				a = append(a, path)
-			}
+	walkFn := func(path string, fi hugofs.FileMetaInfo, err error) error {
+		if err != nil {
+			c.logger.ERROR.Println("walker: ", err)
 			return nil
 		}
+
+		if fi.IsDir() {
+			if fi.Name() == ".git" ||
+				fi.Name() == "node_modules" || fi.Name() == "bower_components" {
+				return filepath.SkipDir
+			}
+
+			dirnames = append(dirnames, fi.Meta().Filename())
+		}
+
+		return nil
+
 	}
 
-	symLinkWalker := newWalker(true)
-	regularWalker := newWalker(false)
+	watchDirs := c.hugo.PathSpec.BaseFs.WatchDirs()
+	for _, watchDir := range watchDirs {
 
-	// SymbolicWalk will log anny ERRORs
-	// Also note that the Dirnames fetched below will contain any relevant theme
-	// directories.
-	for _, contentDir := range c.hugo.PathSpec.BaseFs.Content.Dirnames {
-		_ = helpers.SymbolicWalk(c.Fs.Source, contentDir, symLinkWalker)
-	}
-
-	for _, staticDir := range c.hugo.PathSpec.BaseFs.Data.Dirnames {
-		_ = helpers.SymbolicWalk(c.Fs.Source, staticDir, regularWalker)
-	}
-
-	for _, staticDir := range c.hugo.PathSpec.BaseFs.I18n.Dirnames {
-		_ = helpers.SymbolicWalk(c.Fs.Source, staticDir, regularWalker)
-	}
-
-	for _, staticDir := range c.hugo.PathSpec.BaseFs.Layouts.Dirnames {
-		_ = helpers.SymbolicWalk(c.Fs.Source, staticDir, regularWalker)
-	}
-
-	for _, staticFilesystem := range c.hugo.PathSpec.BaseFs.Static {
-		for _, staticDir := range staticFilesystem.Dirnames {
-			_ = helpers.SymbolicWalk(c.Fs.Source, staticDir, regularWalker)
+		w := hugofs.NewWalkway(hugofs.WalkwayConfig{Info: watchDir, WalkFn: walkFn})
+		if err := w.Walk(); err != nil {
+			c.logger.ERROR.Println("walker: ", err)
 		}
 	}
 
-	for _, assetDir := range c.hugo.PathSpec.BaseFs.Assets.Dirnames {
-		_ = helpers.SymbolicWalk(c.Fs.Source, assetDir, regularWalker)
-	}
+	dirnames = helpers.UniqueStrings(dirnames)
+	sort.Strings(dirnames)
 
-	if len(nested) > 0 {
-		for {
-
-			toWalk := nested
-			nested = nested[:0]
-
-			for _, d := range toWalk {
-				_ = helpers.SymbolicWalk(c.Fs.Source, d, symLinkWalker)
-			}
-
-			if len(nested) == 0 {
-				break
-			}
-		}
-	}
-
-	a = helpers.UniqueStrings(a)
-	sort.Strings(a)
-
-	return a, nil
+	return dirnames, nil
 }
 
 func (c *commandeer) buildSites() (err error) {
@@ -825,7 +746,13 @@ func (c *commandeer) fullRebuild() {
 	}
 
 	if !c.paused {
-		err := c.buildSites()
+		_, err := c.copyStatic()
+		if err != nil {
+			c.logger.ERROR.Println(err)
+			return
+		}
+
+		err = c.buildSites()
 		if err != nil {
 			c.logger.ERROR.Println(err)
 		} else if !c.h.buildWatch && !c.Cfg.GetBool("disableLiveReload") {
@@ -1015,7 +942,7 @@ func (c *commandeer) handleEvents(watcher *watcher.Batcher,
 			continue
 		}
 
-		walkAdder := func(path string, f os.FileInfo, err error) error {
+		walkAdder := func(path string, f hugofs.FileMetaInfo, err error) error {
 			if f.IsDir() {
 				c.logger.FEEDBACK.Println("adding created directory to watchlist", path)
 				if err := watcher.Add(path); err != nil {
@@ -1170,37 +1097,10 @@ func pickOneWriteOrCreatePath(events []fsnotify.Event) string {
 
 // isThemeVsHugoVersionMismatch returns whether the current Hugo version is
 // less than any of the themes' min_version.
+// TODO(bep) mod
 func (c *commandeer) isThemeVsHugoVersionMismatch(fs afero.Fs) (dir string, mismatch bool, requiredMinVersion string) {
 	if !c.hugo.PathSpec.ThemeSet() {
 		return
-	}
-
-	for _, absThemeDir := range c.hugo.BaseFs.AbsThemeDirs {
-
-		path := filepath.Join(absThemeDir, "theme.toml")
-
-		exists, err := helpers.Exists(path, fs)
-
-		if err != nil || !exists {
-			continue
-		}
-
-		b, err := afero.ReadFile(fs, path)
-		if err != nil {
-			continue
-		}
-
-		tomlMeta, err := metadecoders.Default.UnmarshalToMap(b, metadecoders.TOML)
-		if err != nil {
-			continue
-		}
-
-		if minVersion, ok := tomlMeta["min_version"]; ok {
-			if hugo.CompareVersion(minVersion) > 0 {
-				return absThemeDir, true, fmt.Sprint(minVersion)
-			}
-		}
-
 	}
 
 	return

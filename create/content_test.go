@@ -64,8 +64,9 @@ func TestNewContent(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		cfg, fs := newTestCfg(assert)
-		assert.NoError(initFs(fs))
+		mm := afero.NewMemMapFs()
+		assert.NoError(initFs(mm))
+		cfg, fs := newTestCfg(assert, mm)
 		h, err := hugolib.NewHugoSites(deps.DepsCfg{Cfg: cfg, Fs: fs})
 		assert.NoError(err)
 
@@ -86,15 +87,14 @@ func TestNewContent(t *testing.T) {
 }
 
 func TestNewContentFromDir(t *testing.T) {
+	mm := afero.NewMemMapFs()
 	assert := require.New(t)
-	cfg, fs := newTestCfg(assert)
-	assert.NoError(initFs(fs))
 
 	archetypeDir := filepath.Join("archetypes", "my-bundle")
-	assert.NoError(fs.Source.Mkdir(archetypeDir, 0755))
+	assert.NoError(mm.MkdirAll(archetypeDir, 0755))
 
 	archetypeThemeDir := filepath.Join("themes", "mytheme", "archetypes", "my-theme-bundle")
-	assert.NoError(fs.Source.Mkdir(archetypeThemeDir, 0755))
+	assert.NoError(mm.MkdirAll(archetypeThemeDir, 0755))
 
 	contentFile := `
 File: %s
@@ -103,15 +103,18 @@ Name: {{ replace .Name "-" " " | title }}
 i18n: {{ T "hugo" }}
 `
 
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeDir, "index.md"), []byte(fmt.Sprintf(contentFile, "index.md")), 0755))
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeDir, "index.nn.md"), []byte(fmt.Sprintf(contentFile, "index.nn.md")), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeDir, "index.md"), []byte(fmt.Sprintf(contentFile, "index.md")), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeDir, "index.nn.md"), []byte(fmt.Sprintf(contentFile, "index.nn.md")), 0755))
 
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeDir, "pages", "bio.md"), []byte(fmt.Sprintf(contentFile, "bio.md")), 0755))
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeDir, "resources", "hugo1.json"), []byte(`hugo1: {{ printf "no template handling in here" }}`), 0755))
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeDir, "resources", "hugo2.xml"), []byte(`hugo2: {{ printf "no template handling in here" }}`), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeDir, "pages", "bio.md"), []byte(fmt.Sprintf(contentFile, "bio.md")), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeDir, "resources", "hugo1.json"), []byte(`hugo1: {{ printf "no template handling in here" }}`), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeDir, "resources", "hugo2.xml"), []byte(`hugo2: {{ printf "no template handling in here" }}`), 0755))
 
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeThemeDir, "index.md"), []byte(fmt.Sprintf(contentFile, "index.md")), 0755))
-	assert.NoError(afero.WriteFile(fs.Source, filepath.Join(archetypeThemeDir, "resources", "hugo1.json"), []byte(`hugo1: {{ printf "no template handling in here" }}`), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeThemeDir, "index.md"), []byte(fmt.Sprintf(contentFile, "index.md")), 0755))
+	assert.NoError(afero.WriteFile(mm, filepath.Join(archetypeThemeDir, "resources", "hugo1.json"), []byte(`hugo1: {{ printf "no template handling in here" }}`), 0755))
+
+	assert.NoError(initFs(mm))
+	cfg, fs := newTestCfg(assert, mm)
 
 	h, err := hugolib.NewHugoSites(deps.DepsCfg{Cfg: cfg, Fs: fs})
 	assert.NoError(err)
@@ -135,7 +138,7 @@ i18n: {{ T "hugo" }}
 
 }
 
-func initFs(fs *hugofs.Fs) error {
+func initFs(fs afero.Fs) error {
 	perm := os.FileMode(0755)
 	var err error
 
@@ -146,8 +149,8 @@ func initFs(fs *hugofs.Fs) error {
 		filepath.Join("themes", "sample", "archetypes"),
 	}
 	for _, dir := range dirs {
-		err = fs.Source.Mkdir(dir, perm)
-		if err != nil {
+		err = fs.Mkdir(dir, perm)
+		if err != nil && !os.IsExist(err) {
 			return err
 		}
 	}
@@ -198,7 +201,7 @@ Some text.
 `,
 		},
 	} {
-		f, err := fs.Source.Create(v.path)
+		f, err := fs.Create(v.path)
 		if err != nil {
 			return err
 		}
@@ -221,6 +224,7 @@ func assertContains(assert *require.Assertions, v interface{}, matches ...string
 
 // TODO(bep) extract common testing package with this and some others
 func readFileFromFs(t *testing.T, fs afero.Fs, filename string) string {
+	t.Helper()
 	filename = filepath.FromSlash(filename)
 	b, err := afero.ReadFile(fs, filename)
 	if err != nil {
@@ -238,7 +242,7 @@ func readFileFromFs(t *testing.T, fs afero.Fs, filename string) string {
 	return string(b)
 }
 
-func newTestCfg(assert *require.Assertions) (*viper.Viper, *hugofs.Fs) {
+func newTestCfg(assert *require.Assertions, mm afero.Fs) (*viper.Viper, *hugofs.Fs) {
 
 	cfg := `
 
@@ -254,8 +258,11 @@ languageName = "Nynorsk"
 contentDir = "content_nn"
 
 `
+	if mm == nil {
+		mm = afero.NewMemMapFs()
+	}
 
-	mm := afero.NewMemMapFs()
+	mm.MkdirAll(filepath.FromSlash("themes/mytheme"), 0777)
 
 	assert.NoError(afero.WriteFile(mm, filepath.Join("i18n", "en.toml"), []byte(`[hugo]
 other = "Hugo Rocks!"`), 0755))
