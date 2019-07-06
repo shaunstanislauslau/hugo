@@ -34,13 +34,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func initConfig(cfg config.Provider) error {
-	langs.LoadLanguageSettings(cfg, nil)
-	mod, err := modules.CreateProjectModule(cfg)
+func initConfig(fs afero.Fs, cfg config.Provider) error {
+	if _, err := langs.LoadLanguageSettings(cfg, nil); err != nil {
+		return err
+	}
+
+	modConfig, err := modules.DecodeConfig(cfg)
 	if err != nil {
 		return err
 	}
-	cfg.Set("allModules", modules.Modules{mod})
+
+	if err := modules.ApplyProjectConfigDefaults(cfg, &modConfig); err != nil {
+		return err
+	}
+	workingDir := cfg.GetString("workingDir")
+	themesDir := cfg.GetString("themesDir")
+	if !filepath.IsAbs(themesDir) {
+		themesDir = filepath.Join(workingDir, themesDir)
+	}
+	modulesClient := modules.NewClient(modules.ClientConfig{
+		Fs:           fs,
+		WorkingDir:   workingDir,
+		ThemesDir:    themesDir,
+		ModuleConfig: modConfig,
+		IgnoreVendor: true,
+	})
+
+	moduleConfig, err := modulesClient.Collect()
+	if err != nil {
+		return err
+	}
+
+	cfg.Set("allModules", moduleConfig.Modules)
 
 	return nil
 }
@@ -59,7 +84,6 @@ func TestNewBaseFs(t *testing.T) {
 	v.Set("themesDir", "themes")
 	v.Set("defaultContentLanguage", "en")
 	v.Set("theme", themes[:1])
-	assert.NoError(initConfig(v))
 
 	// Write some data to the themes
 	for _, theme := range themes {
@@ -94,7 +118,7 @@ theme = ["atheme"]
 	setConfigAndWriteSomeFilesTo(fs.Source, v, "resourceDir", "myrsesource", 10)
 
 	v.Set("publishDir", "public")
-	assert.NoError(initConfig(v))
+	assert.NoError(initConfig(fs.Source, v))
 
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
@@ -177,8 +201,9 @@ func createConfig() *viper.Viper {
 func TestNewBaseFsEmpty(t *testing.T) {
 	assert := require.New(t)
 	v := createConfig()
-	assert.NoError(initConfig(v))
 	fs := hugofs.NewMem(v)
+	assert.NoError(initConfig(fs.Source, v))
+
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
 	bfs, err := NewBase(p)
@@ -211,7 +236,6 @@ func TestRealDirs(t *testing.T) {
 	v.Set("workingDir", root)
 	v.Set("themesDir", themesDir)
 	v.Set("theme", "mytheme")
-	assert.NoError(initConfig(v))
 
 	assert.NoError(sfs.MkdirAll(filepath.Join(root, "myassets", "scss", "sf1"), 0755))
 	assert.NoError(sfs.MkdirAll(filepath.Join(root, "myassets", "scss", "sf2"), 0755))
@@ -234,6 +258,8 @@ func TestRealDirs(t *testing.T) {
 
 	afero.WriteFile(sfs, filepath.Join(filepath.Join(root, "myassets", "js", "f2", "a1.js")), []byte("content"), 0755)
 	afero.WriteFile(sfs, filepath.Join(filepath.Join(root, "myassets", "js", "a2.js")), []byte("content"), 0755)
+
+	assert.NoError(initConfig(fs.Source, v))
 
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
@@ -264,7 +290,6 @@ func TestStaticFs(t *testing.T) {
 	v.Set("workingDir", workDir)
 	v.Set("themesDir", "themes")
 	v.Set("theme", []string{"t1", "t2"})
-	assert.NoError(initConfig(v))
 
 	fs := hugofs.NewMem(v)
 
@@ -275,6 +300,8 @@ func TestStaticFs(t *testing.T) {
 	afero.WriteFile(fs.Source, filepath.Join(themeStaticDir, "f1.txt"), []byte("Hugo Themes Rocks!"), 0755)
 	afero.WriteFile(fs.Source, filepath.Join(themeStaticDir, "f2.txt"), []byte("Hugo Themes Still Rocks!"), 0755)
 	afero.WriteFile(fs.Source, filepath.Join(themeStaticDir2, "f2.txt"), []byte("Hugo Themes Rocks in t2!"), 0755)
+
+	assert.NoError(initConfig(fs.Source, v))
 
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
@@ -306,8 +333,6 @@ func TestStaticFsMultiHost(t *testing.T) {
 
 	v.Set("languages", langConfig)
 
-	assert.NoError(initConfig(v))
-
 	fs := hugofs.NewMem(v)
 
 	themeStaticDir := filepath.Join(workDir, "themes", "t1", "static")
@@ -317,6 +342,8 @@ func TestStaticFsMultiHost(t *testing.T) {
 
 	afero.WriteFile(fs.Source, filepath.Join(themeStaticDir, "f1.txt"), []byte("Hugo Themes Rocks!"), 0755)
 	afero.WriteFile(fs.Source, filepath.Join(themeStaticDir, "f2.txt"), []byte("Hugo Themes Still Rocks!"), 0755)
+
+	assert.NoError(initConfig(fs.Source, v))
 
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
