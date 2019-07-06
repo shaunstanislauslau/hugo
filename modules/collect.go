@@ -373,25 +373,44 @@ func (c *collector) applyThemeConfig(tc *moduleAdapter) error {
 
 }
 
+// CreateProjectModule creates a project module from the given config.
+// This is used in tests only.
+func CreateProjectModule(cfg config.Provider) (Module, error) {
+	workingDir := cfg.GetString("workingDir")
+	var modConfig Config
+	if err := ApplyProjectConfigDefaults(cfg, &modConfig); err != nil {
+		return nil, err
+	}
+
+	mod := createProjectModule(nil, workingDir, modConfig)
+	mod.mounts = modConfig.Mounts
+
+	return mod, nil
+}
+
+func createProjectModule(gomod *goModule, workingDir string, conf Config) *moduleAdapter {
+	// Create a pseudo module for the main project.
+	var path string
+	if gomod == nil {
+		path = "project"
+	}
+
+	return &moduleAdapter{
+		path:       path,
+		dir:        workingDir,
+		gomod:      gomod,
+		projectMod: true,
+		config:     conf,
+	}
+
+}
+
 func (c *collector) collect() error {
 	if err := c.initModules(); err != nil {
 		return err
 	}
 
-	// Create a pseudo module for the main project.
-	var path string
-	gomod := c.gomods.GetMain()
-	if gomod == nil {
-		path = "project"
-	}
-
-	projectMod := &moduleAdapter{
-		path:       path,
-		dir:        c.workingDir,
-		gomod:      gomod,
-		projectMod: true,
-		config:     c.moduleConfig,
-	}
+	projectMod := createProjectModule(c.gomods.GetMain(), c.workingDir, c.moduleConfig)
 
 	if err := c.addAndRecurse(projectMod); err != nil {
 		return err

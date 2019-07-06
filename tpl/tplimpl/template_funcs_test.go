@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gohugoio/hugo/modules"
+
 	"github.com/gohugoio/hugo/resources/page"
 
 	"github.com/gohugoio/hugo/common/hugo"
@@ -54,6 +56,11 @@ func newTestConfig() config.Provider {
 	v.Set("publishDir", "public")
 
 	langs.LoadLanguageSettings(v, nil)
+	mod, err := modules.CreateProjectModule(v)
+	if err != nil {
+		panic(err)
+	}
+	v.Set("allModules", modules.Modules{mod})
 
 	return v
 }

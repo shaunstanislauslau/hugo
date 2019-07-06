@@ -169,36 +169,8 @@ func New(fs *hugofs.Fs, cfg config.Provider) (*Paths, error) {
 		PaginatePath: cfg.GetString("paginatePath"),
 	}
 
-	// TODO(bep) improve.
 	if cfg.IsSet("allModules") {
 		p.AllModules = cfg.Get("allModules").(modules.Modules)
-	} else {
-		panic("no mods set")
-		/*
-			modConfig, err := modules.DecodeConfig(cfg, true)
-			if err != nil {
-				return nil, err
-			}
-
-			themesDir := p.AbsPathify(p.ThemesDir)
-
-			modulesClient := modules.NewClient(modules.ClientConfig{
-				Fs:           p.Fs.Source,
-				WorkingDir:   p.WorkingDir,
-				ThemesDir:    themesDir,
-				ModuleConfig: modConfig,
-				IgnoreVendor: cfg.GetBool("ignoreVendor"),
-				ModProxy:     cfg.GetString("modProxy"),
-			})
-
-			themeConfig, err := modulesClient.Collect()
-			if err != nil {
-				return nil, err
-			}
-			p.ModulesClient = modulesClient
-			p.AllModules = themeConfig.Modules
-		*/
-
 	}
 
 	if cfg.IsSet("modulesClient") {

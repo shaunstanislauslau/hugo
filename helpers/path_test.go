@@ -73,17 +73,8 @@ func TestMakePath(t *testing.T) {
 }
 
 func TestMakePathSanitized(t *testing.T) {
-	v := viper.New()
-	v.Set("contentDir", "content")
-	v.Set("dataDir", "data")
-	v.Set("i18nDir", "i18n")
-	v.Set("layoutDir", "layouts")
-	v.Set("assetDir", "assets")
-	v.Set("resourceDir", "resources")
-	v.Set("publishDir", "public")
-	v.Set("archetypeDir", "archetypes")
+	v := newTestCfg()
 
-	langs.LoadLanguageSettings(v, nil)
 	p, _ := NewPathSpec(hugofs.NewMem(v), v)
 
 	tests := []struct {

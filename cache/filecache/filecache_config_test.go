@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gohugoio/hugo/modules"
+
 	"github.com/gohugoio/hugo/langs"
 
 	"github.com/gohugoio/hugo/helpers"
@@ -57,9 +59,9 @@ dir = "/path/to/c3"
 
 `
 
-	cfg, err := config.FromConfigString(configStr, "toml")
+	cfg, err := configFromString(configStr)
 	assert.NoError(err)
-	langs.LoadLanguageSettings(cfg, nil)
+
 	fs := hugofs.NewMem(cfg)
 	p, err := helpers.NewPathSpec(fs, cfg)
 	assert.NoError(err)
@@ -77,6 +79,23 @@ dir = "/path/to/c3"
 	assert.Equal(time.Duration(-1), c3.MaxAge)
 	assert.Equal(filepath.FromSlash("/path/to/c3"), c3.Dir)
 
+}
+
+func configFromString(configStr string) (config.Provider, error) {
+	cfg, err := config.FromConfigString(configStr, "toml")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := langs.LoadLanguageSettings(cfg, nil); err != nil {
+		return nil, err
+	}
+	mod, err := modules.CreateProjectModule(cfg)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Set("allModules", modules.Modules{mod})
+
+	return cfg, nil
 }
 
 func TestDecodeConfigIgnoreCache(t *testing.T) {
@@ -106,9 +125,7 @@ dir = "/path/to/c3"
 
 `
 
-	cfg, err := config.FromConfigString(configStr, "toml")
-	assert.NoError(err)
-	langs.LoadLanguageSettings(cfg, nil)
+	cfg, err := configFromString(configStr)
 	fs := hugofs.NewMem(cfg)
 	p, err := helpers.NewPathSpec(fs, cfg)
 	assert.NoError(err)
@@ -185,9 +202,7 @@ dir = "/"
 		configStr = strings.Replace(configStr, "/", "c:\\\\", 1)
 	}
 
-	cfg, err := config.FromConfigString(configStr, "toml")
-	assert.NoError(err)
-	langs.LoadLanguageSettings(cfg, nil)
+	cfg, err := configFromString(configStr)
 	fs := hugofs.NewMem(cfg)
 	p, err := helpers.NewPathSpec(fs, cfg)
 	assert.NoError(err)
@@ -209,6 +224,11 @@ func newTestConfig() *viper.Viper {
 	cfg.Set("assetDir", "assets")
 
 	langs.LoadLanguageSettings(cfg, nil)
+	mod, err := modules.CreateProjectModule(cfg)
+	if err != nil {
+		panic(err)
+	}
+	cfg.Set("allModules", modules.Modules{mod})
 
 	return cfg
 }

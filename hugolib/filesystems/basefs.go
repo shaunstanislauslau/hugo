@@ -346,9 +346,7 @@ func (b *sourceFilesystemsBuilder) Build() (*SourceFilesystems, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "create main fs")
 		}
-		if theBigFs.overlayMounts == nil {
-			panic("overlayMounts was nil")
-		}
+
 		b.theBigFs = theBigFs
 	}
 
@@ -357,7 +355,7 @@ func (b *sourceFilesystemsBuilder) Build() (*SourceFilesystems, error) {
 			panic("no fs")
 		}
 		if b.theBigFs.overlayMounts == nil {
-			panic("no overlay")
+			panic("no overlayMounts")
 		}
 
 		dirs := b.theBigFs.overlayDirs[componentID]
@@ -428,7 +426,23 @@ func (b *sourceFilesystemsBuilder) createMainOverlayFs(p *paths.Paths) (*filesys
 	mods := p.AllModules
 
 	if len(mods) == 0 {
-		panic("no mods set")
+		panic("no mods")
+	}
+
+	var staticFsMap map[string]afero.Fs
+	if b.p.Cfg.GetBool("multihost") {
+		staticFsMap = make(map[string]afero.Fs)
+	}
+
+	collector := &filesystemsCollector{
+		sourceProject:     b.sourceFs,
+		sourceModules:     b.sourceFs, // TODO(bep) mod: add a no symlinc fs
+		overlayDirs:       make(map[string][]hugofs.FileMetaInfo),
+		staticPerLanguage: staticFsMap,
+	}
+
+	if len(mods) == 0 {
+		return collector, nil
 	}
 
 	modsReversed := make([]mountsDescriptor, len(mods))
@@ -450,18 +464,6 @@ func (b *sourceFilesystemsBuilder) createMainOverlayFs(p *paths.Paths) (*filesys
 			watch:         !mod.IsGoMod(), // TODO(bep) mod consider Replace
 			isMainProject: mod.Owner() == nil,
 		}
-	}
-
-	var staticFsMap map[string]afero.Fs
-	if b.p.Cfg.GetBool("multihost") {
-		staticFsMap = make(map[string]afero.Fs)
-	}
-
-	collector := &filesystemsCollector{
-		sourceProject:     b.sourceFs,
-		sourceModules:     b.sourceFs, // TODO(bep) mod: add a no symlinc fs
-		overlayDirs:       make(map[string][]hugofs.FileMetaInfo),
-		staticPerLanguage: staticFsMap,
 	}
 
 	err := b.createOverlayFs(collector, modsReversed)

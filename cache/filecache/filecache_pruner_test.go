@@ -18,10 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/helpers"
 	"github.com/gohugoio/hugo/hugofs"
-	"github.com/gohugoio/hugo/langs"
 
 	"github.com/stretchr/testify/require"
 )
@@ -55,9 +53,8 @@ maxAge = "200ms"
 dir = ":resourceDir/_gen"
 `
 
-	cfg, err := config.FromConfigString(configStr, "toml")
+	cfg, err := configFromString(configStr)
 	assert.NoError(err)
-	langs.LoadLanguageSettings(cfg, nil)
 
 	for _, name := range []string{cacheKeyGetCSV, cacheKeyGetJSON, cacheKeyAssets, cacheKeyImages} {
 		msg := fmt.Sprintf("cache: %s", name)

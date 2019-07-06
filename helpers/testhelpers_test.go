@@ -5,6 +5,7 @@ import (
 
 	"github.com/gohugoio/hugo/hugofs"
 	"github.com/gohugoio/hugo/langs"
+	"github.com/gohugoio/hugo/modules"
 )
 
 func newTestPathSpec(fs *hugofs.Fs, v *viper.Viper) *PathSpec {
@@ -43,6 +44,13 @@ func newTestCfg() *viper.Viper {
 	v.Set("publishDir", "public")
 	v.Set("archetypeDir", "archetypes")
 	langs.LoadLanguageSettings(v, nil)
+	langs.LoadLanguageSettings(v, nil)
+	mod, err := modules.CreateProjectModule(v)
+	if err != nil {
+		panic(err)
+	}
+	v.Set("allModules", modules.Modules{mod})
+
 	return v
 }
 

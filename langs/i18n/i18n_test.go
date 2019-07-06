@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gohugoio/hugo/modules"
+
 	"github.com/gohugoio/hugo/tpl/tplimpl"
 
 	"github.com/gohugoio/hugo/common/loggers"
@@ -220,6 +222,12 @@ func getConfig() *viper.Viper {
 	v.Set("resourceDir", "resources")
 	v.Set("publishDir", "public")
 	langs.LoadLanguageSettings(v, nil)
+	mod, err := modules.CreateProjectModule(v)
+	if err != nil {
+		panic(err)
+	}
+	v.Set("allModules", modules.Modules{mod})
+
 	return v
 
 }
