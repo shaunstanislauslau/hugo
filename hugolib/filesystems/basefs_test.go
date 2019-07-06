@@ -21,15 +21,29 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gohugoio/hugo/config"
+
 	"github.com/gohugoio/hugo/langs"
 
 	"github.com/spf13/afero"
 
 	"github.com/gohugoio/hugo/hugofs"
 	"github.com/gohugoio/hugo/hugolib/paths"
+	"github.com/gohugoio/hugo/modules"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
+
+func initConfig(cfg config.Provider) error {
+	langs.LoadLanguageSettings(cfg, nil)
+	mod, err := modules.CreateProjectModule(cfg)
+	if err != nil {
+		return err
+	}
+	cfg.Set("allModules", modules.Modules{mod})
+
+	return nil
+}
 
 func TestNewBaseFs(t *testing.T) {
 	assert := require.New(t)
@@ -45,7 +59,7 @@ func TestNewBaseFs(t *testing.T) {
 	v.Set("themesDir", "themes")
 	v.Set("defaultContentLanguage", "en")
 	v.Set("theme", themes[:1])
-	langs.LoadLanguageSettings(v, nil)
+	assert.NoError(initConfig(v))
 
 	// Write some data to the themes
 	for _, theme := range themes {
@@ -80,6 +94,7 @@ theme = ["atheme"]
 	setConfigAndWriteSomeFilesTo(fs.Source, v, "resourceDir", "myrsesource", 10)
 
 	v.Set("publishDir", "public")
+	assert.NoError(initConfig(v))
 
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
@@ -156,17 +171,13 @@ func createConfig() *viper.Viper {
 	v.Set("publishDir", "public")
 	v.Set("defaultContentLanguage", "en")
 
-	_, err := langs.LoadLanguageSettings(v, nil)
-	if err != nil {
-		panic(err)
-	}
-
 	return v
 }
 
 func TestNewBaseFsEmpty(t *testing.T) {
 	assert := require.New(t)
 	v := createConfig()
+	assert.NoError(initConfig(v))
 	fs := hugofs.NewMem(v)
 	p, err := paths.New(fs, v)
 	assert.NoError(err)
@@ -200,6 +211,7 @@ func TestRealDirs(t *testing.T) {
 	v.Set("workingDir", root)
 	v.Set("themesDir", themesDir)
 	v.Set("theme", "mytheme")
+	assert.NoError(initConfig(v))
 
 	assert.NoError(sfs.MkdirAll(filepath.Join(root, "myassets", "scss", "sf1"), 0755))
 	assert.NoError(sfs.MkdirAll(filepath.Join(root, "myassets", "scss", "sf2"), 0755))
@@ -252,6 +264,7 @@ func TestStaticFs(t *testing.T) {
 	v.Set("workingDir", workDir)
 	v.Set("themesDir", "themes")
 	v.Set("theme", []string{"t1", "t2"})
+	assert.NoError(initConfig(v))
 
 	fs := hugofs.NewMem(v)
 
@@ -293,7 +306,7 @@ func TestStaticFsMultiHost(t *testing.T) {
 
 	v.Set("languages", langConfig)
 
-	langs.LoadLanguageSettings(v, nil)
+	assert.NoError(initConfig(v))
 
 	fs := hugofs.NewMem(v)
 

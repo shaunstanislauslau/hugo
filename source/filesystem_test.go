@@ -19,6 +19,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/gohugoio/hugo/modules"
+
 	"github.com/gohugoio/hugo/langs"
 
 	"github.com/spf13/afero"
@@ -90,6 +92,12 @@ func newTestConfig() *viper.Viper {
 	if err != nil {
 		panic(err)
 	}
+	mod, err := modules.CreateProjectModule(v)
+	if err != nil {
+		panic(err)
+	}
+	v.Set("allModules", modules.Modules{mod})
+
 	return v
 }
 

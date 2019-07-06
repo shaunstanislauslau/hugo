@@ -4,14 +4,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gohugoio/hugo/langs"
-
 	"image"
 	"io"
 	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/gohugoio/hugo/langs"
+	"github.com/gohugoio/hugo/modules"
 
 	"github.com/gohugoio/hugo/cache/filecache"
 	"github.com/gohugoio/hugo/helpers"
@@ -29,9 +30,8 @@ func newTestResourceSpec(assert *require.Assertions) *Spec {
 	return newTestResourceSpecForBaseURL(assert, "https://example.com/")
 }
 
-func newTestResourceSpecForBaseURL(assert *require.Assertions, baseURL string) *Spec {
+func createTestCfg() *viper.Viper {
 	cfg := viper.New()
-	cfg.Set("baseURL", baseURL)
 	cfg.Set("resourceDir", "resources")
 	cfg.Set("contentDir", "content")
 	cfg.Set("dataDir", "data")
@@ -41,6 +41,21 @@ func newTestResourceSpecForBaseURL(assert *require.Assertions, baseURL string) *
 	cfg.Set("archetypeDir", "archetypes")
 	cfg.Set("publishDir", "public")
 
+	langs.LoadLanguageSettings(cfg, nil)
+	mod, err := modules.CreateProjectModule(cfg)
+	if err != nil {
+		panic(err)
+	}
+	cfg.Set("allModules", modules.Modules{mod})
+
+	return cfg
+
+}
+
+func newTestResourceSpecForBaseURL(assert *require.Assertions, baseURL string) *Spec {
+	cfg := createTestCfg()
+	cfg.Set("baseURL", baseURL)
+
 	imagingCfg := map[string]interface{}{
 		"resampleFilter": "linear",
 		"quality":        68,
@@ -48,8 +63,6 @@ func newTestResourceSpecForBaseURL(assert *require.Assertions, baseURL string) *
 	}
 
 	cfg.Set("imaging", imagingCfg)
-
-	langs.LoadLanguageSettings(cfg, nil)
 
 	fs := hugofs.NewMem(cfg)
 
@@ -74,7 +87,7 @@ func newTargetPaths(link string) func() page.TargetPaths {
 }
 
 func newTestResourceOsFs(assert *require.Assertions) *Spec {
-	cfg := viper.New()
+	cfg := createTestCfg()
 	cfg.Set("baseURL", "https://example.com")
 
 	workDir, _ := ioutil.TempDir("", "hugores")
@@ -86,16 +99,6 @@ func newTestResourceOsFs(assert *require.Assertions) *Spec {
 	}
 
 	cfg.Set("workingDir", workDir)
-	cfg.Set("resourceDir", "resources")
-	cfg.Set("contentDir", "content")
-	cfg.Set("dataDir", "data")
-	cfg.Set("i18nDir", "i18n")
-	cfg.Set("layoutDir", "layouts")
-	cfg.Set("assetDir", "assets")
-	cfg.Set("archetypeDir", "archetypes")
-	cfg.Set("publishDir", "public")
-
-	langs.LoadLanguageSettings(cfg, nil)
 
 	fs := hugofs.NewFrom(hugofs.Os, cfg)
 	fs.Destination = &afero.MemMapFs{}

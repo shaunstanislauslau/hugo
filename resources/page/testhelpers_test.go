@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gohugoio/hugo/modules"
+
 	"github.com/bep/gitmap"
 	"github.com/gohugoio/hugo/helpers"
 	"github.com/gohugoio/hugo/resources/resource"
@@ -65,6 +67,11 @@ func newTestPathSpec() *helpers.PathSpec {
 func newTestPathSpecFor(cfg config.Provider) *helpers.PathSpec {
 	config.SetBaseTestDefaults(cfg)
 	langs.LoadLanguageSettings(cfg, nil)
+	mod, err := modules.CreateProjectModule(cfg)
+	if err != nil {
+		panic(err)
+	}
+	cfg.Set("allModules", modules.Modules{mod})
 	fs := hugofs.NewMem(cfg)
 	s, err := helpers.NewPathSpec(fs, cfg)
 	if err != nil {

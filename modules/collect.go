@@ -373,7 +373,7 @@ func (c *collector) applyThemeConfig(tc *moduleAdapter) error {
 
 }
 
-// CreateProjectModule creates a project module from the given config.
+// CreateProjectModule creates modules from the given config.
 // This is used in tests only.
 func CreateProjectModule(cfg config.Provider) (Module, error) {
 	workingDir := cfg.GetString("workingDir")
