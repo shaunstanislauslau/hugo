@@ -16,7 +16,6 @@ package hugolib
 import (
 	"fmt"
 	"math/rand"
-	"strings"
 	"testing"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 
 // TODO(bep) mod this fails when testmodBuilder is also building ...
 func TestHugoModules(t *testing.T) {
+	t.Parallel()
 
 	if hugo.GoMinorVersion() < 12 {
 		// https://github.com/golang/go/issues/26794
@@ -51,20 +51,15 @@ func TestHugoModules(t *testing.T) {
 	rnd.Shuffle(len(testmods), func(i, j int) { testmods[i], testmods[j] = testmods[j], testmods[i] })
 
 	for _, m := range testmods[:2] {
-		m := m
-		name := fmt.Sprintf("%s/ignoreVendor=%t", strings.Replace(m.Path(), ".", "/", -1), ignoreVendor)
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+		assert := require.New(t)
 
-			assert := require.New(t)
+		v := viper.New()
 
-			v := viper.New()
+		workingDir, clean, err := htesting.CreateTempDir(hugofs.Os, "hugo-modules-test")
+		assert.NoError(err)
+		defer clean()
 
-			workingDir, clean, err := htesting.CreateTempDir(hugofs.Os, "hugo-modules-test")
-			assert.NoError(err)
-			defer clean()
-
-			configTemplate := `
+		configTemplate := `
 baseURL = "https://example.com"
 title = "My Modular Site"
 workingDir = %q
@@ -73,20 +68,20 @@ ignoreVendor = %t
 
 `
 
-			config := fmt.Sprintf(configTemplate, workingDir, m.Path(), ignoreVendor)
+		config := fmt.Sprintf(configTemplate, workingDir, m.Path(), ignoreVendor)
 
-			b := newTestSitesBuilder(t)
+		b := newTestSitesBuilder(t)
 
-			// Need to use OS fs for this.
-			b.Fs = hugofs.NewDefault(v)
+		// Need to use OS fs for this.
+		b.Fs = hugofs.NewDefault(v)
 
-			b.WithWorkingDir(workingDir).WithConfigFile("toml", config)
-			b.WithContent("page.md", `
+		b.WithWorkingDir(workingDir).WithConfigFile("toml", config)
+		b.WithContent("page.md", `
 ---
 title: "Foo"
 ---
 `)
-			b.WithTemplates("home.html", `
+		b.WithTemplates("home.html", `
 
 {{ $mod := .Site.Data.modinfo.module }}
 Mod Name: {{ $mod.name }}
@@ -98,24 +93,23 @@ Mod Version: {{ $mod.version }}
 
 
 `)
-			b.WithSourceFile("go.mod", `
+		b.WithSourceFile("go.mod", `
 module github.com/gohugoio/tests/testHugoModules
 
 
 `)
 
-			b.Build(BuildCfg{})
+		b.Build(BuildCfg{})
 
-			// Verify that go.mod is autopopulated with all the modules in config.toml.
-			b.AssertFileContent("go.mod", m.Path())
+		// Verify that go.mod is autopopulated with all the modules in config.toml.
+		b.AssertFileContent("go.mod", m.Path())
 
-			b.AssertFileContent("public/index.html",
-				"Mod Name: "+m.Name(),
-				"Mod Version: v1.4.0")
+		b.AssertFileContent("public/index.html",
+			"Mod Name: "+m.Name(),
+			"Mod Version: v1.4.0")
 
-			b.AssertFileContent("public/index.html", createChildModMatchers(m, ignoreVendor, m.Vendor)...)
+		b.AssertFileContent("public/index.html", createChildModMatchers(m, ignoreVendor, m.Vendor)...)
 
-		})
 	}
 }
 

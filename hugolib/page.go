@@ -496,14 +496,6 @@ func (p *pageState) addSectionToParent() {
 	p.parent.subSections = append(p.parent.subSections, p)
 }
 
-func (p *pageState) contentMarkupType() string {
-	if p.m.markup != "" {
-		return p.m.markup
-
-	}
-	return p.File().Ext()
-}
-
 func (p *pageState) mapContent(meta *pageMeta) error {
 
 	s := p.shortcodeState

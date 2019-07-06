@@ -36,9 +36,6 @@ type fileInfo struct {
 	source.File
 
 	overriddenLang string
-
-	// Set if the content language for this file is disabled.
-	disabled bool
 }
 
 func (fi *fileInfo) Open() (afero.File, error) {
