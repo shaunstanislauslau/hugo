@@ -150,12 +150,22 @@ func LoadConfig(d ConfigSourceDescriptor, doWithConfig ...func(cfg config.Provid
 		}
 	}
 
+	modulesConfig, err := l.loadModulesConfig(v)
+	if err != nil {
+		return v, configFiles, err
+	}
+
+	mods, modulesConfigFiles, err := l.collectModules(modulesConfig, v)
+	if err != nil {
+		return v, configFiles, err
+	}
+
 	if err := loadLanguageSettings(v, nil); err != nil {
 		return v, configFiles, err
 	}
 
-	modulesConfigFiles, err := l.loadModulesConfig(v)
-	if err != nil {
+	// Apply default project mounts.
+	if err := modules.ApplyProjectConfigDefaults(v, mods[len(mods)-1]); err != nil {
 		return v, configFiles, err
 	}
 
@@ -334,22 +344,23 @@ func (l configLoader) loadConfigFromConfigDir(v *viper.Viper) ([]string, error) 
 	return dirnames, nil
 }
 
-func (l configLoader) loadModulesConfig(v1 *viper.Viper) ([]string, error) {
+func (l configLoader) loadModulesConfig(v1 *viper.Viper) (modules.Config, error) {
+
+	modConfig, err := modules.DecodeConfig(v1)
+	if err != nil {
+		return modules.Config{}, err
+	}
+
+	return modConfig, nil
+}
+
+func (l configLoader) collectModules(modConfig modules.Config, v1 *viper.Viper) (modules.Modules, []string, error) {
 	workingDir := l.WorkingDir
 	if workingDir == "" {
 		workingDir = v1.GetString("workingDir")
 	}
 
 	themesDir := paths.AbsPathify(l.WorkingDir, v1.GetString("themesDir"))
-
-	modConfig, err := modules.DecodeConfig(v1)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := modules.ApplyProjectConfigDefaults(v1, &modConfig); err != nil {
-		return nil, err
-	}
 
 	ignoreVendor := v1.GetBool("ignoreVendor")
 	modProxy := v1.GetString("modProxy")
@@ -365,7 +376,7 @@ func (l configLoader) loadModulesConfig(v1 *viper.Viper) ([]string, error) {
 
 	moduleConfig, err := modulesClient.Collect()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Avoid recreating these later.
@@ -373,7 +384,7 @@ func (l configLoader) loadModulesConfig(v1 *viper.Viper) ([]string, error) {
 	v1.Set("modulesClient", modulesClient)
 
 	if len(moduleConfig.Modules) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	var configFilenames []string
@@ -381,7 +392,7 @@ func (l configLoader) loadModulesConfig(v1 *viper.Viper) ([]string, error) {
 		if tc.ConfigFilename() != "" {
 			configFilenames = append(configFilenames, tc.ConfigFilename())
 			if err := l.applyThemeConfig(v1, tc); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
@@ -392,7 +403,7 @@ func (l configLoader) loadModulesConfig(v1 *viper.Viper) ([]string, error) {
 		configFilenames = append(configFilenames, moduleConfig.GoModulesFilename)
 	}
 
-	return configFilenames, nil
+	return moduleConfig.Modules, configFilenames, nil
 
 }
 

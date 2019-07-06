@@ -50,7 +50,9 @@ func (m Mount) Component() string {
 
 // ApplyProjectConfigDefaults applies default/missing module configuration for
 // the main project.
-func ApplyProjectConfigDefaults(cfg config.Provider, c *Config) error {
+func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
+	moda := mod.(*moduleAdapter)
+
 	// TODO(bep) mod we need a way to check if contentDir etc. is really set.
 	// ... so remove the default settings for these.
 	// Map legacy directory config into the new module.
@@ -60,7 +62,7 @@ func ApplyProjectConfigDefaults(cfg config.Provider, c *Config) error {
 	// a way to make sure all of the core components are configured on
 	// the basic level.
 	componentsConfigured := make(map[string]bool)
-	for _, mnt := range c.Mounts {
+	for _, mnt := range moda.mounts {
 		componentsConfigured[path.Join(mnt.Component(), mnt.Source)] = true
 	}
 
@@ -89,7 +91,7 @@ func ApplyProjectConfigDefaults(cfg config.Provider, c *Config) error {
 					continue
 				}
 				componentsConfigured[key] = true
-				c.Mounts = append(c.Mounts, Mount{
+				moda.mounts = append(moda.mounts, Mount{
 					Lang:   language.Lang,
 					Source: source,
 					Target: dirKey.component})
@@ -100,7 +102,7 @@ func ApplyProjectConfigDefaults(cfg config.Provider, c *Config) error {
 		staticDirs := getStaticDirs(language)
 		if len(staticDirs) != 0 {
 			for _, dir := range staticDirs {
-				c.Mounts = append(c.Mounts, Mount{Lang: language.Lang, Source: dir, Target: files.ComponentFolderStatic})
+				moda.mounts = append(moda.mounts, Mount{Lang: language.Lang, Source: dir, Target: files.ComponentFolderStatic})
 			}
 		}
 	}
@@ -110,7 +112,7 @@ func ApplyProjectConfigDefaults(cfg config.Provider, c *Config) error {
 		if componentsConfigured[path.Join(dirKey.component, dirKey.component)] {
 			continue
 		}
-		c.Mounts = append(c.Mounts, Mount{Source: dirKey.component, Target: dirKey.component})
+		moda.mounts = append(moda.mounts, Mount{Source: dirKey.component, Target: dirKey.component})
 	}
 
 	return nil

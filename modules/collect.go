@@ -378,12 +378,11 @@ func (c *collector) applyThemeConfig(tc *moduleAdapter) error {
 func CreateProjectModule(cfg config.Provider) (Module, error) {
 	workingDir := cfg.GetString("workingDir")
 	var modConfig Config
-	if err := ApplyProjectConfigDefaults(cfg, &modConfig); err != nil {
-		return nil, err
-	}
 
 	mod := createProjectModule(nil, workingDir, modConfig)
-	mod.mounts = modConfig.Mounts
+	if err := ApplyProjectConfigDefaults(cfg, mod); err != nil {
+		return nil, err
+	}
 
 	return mod, nil
 }
