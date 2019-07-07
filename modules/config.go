@@ -55,65 +55,111 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 
 	// TODO(bep) mod we need a way to check if contentDir etc. is really set.
 	// ... so remove the default settings for these.
+
 	// Map legacy directory config into the new module.
 	languages := cfg.Get("languagesSortedDefaultFirst").(langs.Languages)
+	isMultiHost := languages.IsMultihost()
 
 	// To bridge between old and new configuration format we need
 	// a way to make sure all of the core components are configured on
 	// the basic level.
 	componentsConfigured := make(map[string]bool)
 	for _, mnt := range moda.mounts {
-		componentsConfigured[path.Join(mnt.Component(), mnt.Source)] = true
+		componentsConfigured[mnt.Component()] = true
 	}
 
 	type dirKeyComponent struct {
-		key       string
-		component string
+		key          string
+		component    string
+		multilingual bool
 	}
 
 	dirKeys := []dirKeyComponent{
-		{"contentDir", files.ComponentFolderContent},
-		{"dataDir", files.ComponentFolderData},
-		{"layoutDir", files.ComponentFolderLayouts},
-		{"i18nDir", files.ComponentFolderI18n},
-		{"archetypeDir", files.ComponentFolderArchetypes},
-		{"assetDir", files.ComponentFolderAssets},
-		{"resourceDir", files.ComponentFolderResources},
+		{"contentDir", files.ComponentFolderContent, true},
+		{"dataDir", files.ComponentFolderData, false},
+		{"layoutDir", files.ComponentFolderLayouts, false},
+		{"i18nDir", files.ComponentFolderI18n, false},
+		{"archetypeDir", files.ComponentFolderArchetypes, false},
+		{"assetDir", files.ComponentFolderAssets, false},
+		{"resourceDir", files.ComponentFolderResources, false},
+		{"", files.ComponentFolderStatic, isMultiHost},
 	}
 
-	// TODO(bep) mod we add mounts for all languages. May need to revisit/collapse.
-	for _, language := range languages {
-		for _, dirKey := range dirKeys {
-			if language.IsSet(dirKey.key) {
-				source := language.GetString(dirKey.key)
-				key := path.Join(dirKey.component, source)
-				if componentsConfigured[key] {
-					continue
-				}
-				componentsConfigured[key] = true
-				moda.mounts = append(moda.mounts, Mount{
-					Lang:   language.Lang,
-					Source: source,
-					Target: dirKey.component})
+	createMountsFor := func(d dirKeyComponent, cfg config.Provider) []Mount {
+		var lang string
+		if language, ok := cfg.(*langs.Language); ok {
+			lang = language.Lang
+		}
+		if d.component == files.ComponentFolderStatic {
+			var mounts []Mount
+			// Static mounts are a little special.
+			staticDirs := getStaticDirs(cfg)
+			if len(staticDirs) > 0 {
+				componentsConfigured[d.component] = true
 			}
+
+			for _, dir := range staticDirs {
+				mounts = append(mounts, Mount{Lang: lang, Source: dir, Target: files.ComponentFolderStatic})
+			}
+
+			return mounts
+
 		}
 
-		// The static dir handling was a little ... special.
-		staticDirs := getStaticDirs(language)
-		if len(staticDirs) != 0 {
-			for _, dir := range staticDirs {
-				moda.mounts = append(moda.mounts, Mount{Lang: language.Lang, Source: dir, Target: files.ComponentFolderStatic})
-			}
+		if cfg.IsSet(d.key) {
+			source := cfg.GetString(d.key)
+			componentsConfigured[d.component] = true
+
+			return []Mount{Mount{Lang: lang,
+				Source: source,
+				Target: d.component}}
 		}
+
+		return nil
+	}
+
+	createMounts := func(d dirKeyComponent) []Mount {
+		var mounts []Mount
+		if d.multilingual {
+			for _, language := range languages {
+				mounts = append(mounts, createMountsFor(d, language)...)
+			}
+		} else {
+			mounts = append(mounts, createMountsFor(d, cfg)...)
+
+		}
+
+		return mounts
+	}
+
+	var mounts []Mount
+	for _, dirKey := range dirKeys {
+		if componentsConfigured[dirKey.component] {
+			continue
+		}
+		mounts = append(mounts, createMounts(dirKey)...)
 	}
 
 	// Add default configuration
 	for _, dirKey := range dirKeys {
-		if componentsConfigured[path.Join(dirKey.component, dirKey.component)] {
+		if componentsConfigured[dirKey.component] {
 			continue
 		}
-		moda.mounts = append(moda.mounts, Mount{Source: dirKey.component, Target: dirKey.component})
+		mounts = append(mounts, Mount{Source: dirKey.component, Target: dirKey.component})
 	}
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	tmp := mounts[:0]
+	for _, m := range mounts {
+		key := path.Join(m.Lang, m.Source, m.Target)
+		if !seen[key] {
+			tmp = append(tmp, m)
+		}
+		seen[key] = true
+	}
+
+	moda.mounts = tmp
 
 	return nil
 }

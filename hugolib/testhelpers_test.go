@@ -859,7 +859,7 @@ func dumpPages(pages ...page.Page) {
 	fmt.Println("---------")
 	for i, p := range pages {
 		var meta interface{}
-		if p.File() != nil {
+		if p.File() != nil && p.File().FileInfo() != nil {
 			meta = p.File().FileInfo().Meta()
 		}
 		fmt.Printf("%d: Kind: %s Title: %-10s RelPermalink: %-10s Path: %-10s sections: %s Lang: %s Meta: %v\n",

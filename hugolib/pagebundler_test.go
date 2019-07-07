@@ -294,6 +294,7 @@ func TestPageBundlerSiteMultilingual(t *testing.T) {
 
 				assert.Equal(8, len(s.RegularPages()))
 				assert.Equal(16, len(s.Pages()))
+				dumpPages(s.AllPages()...)
 				assert.Equal(31, len(s.AllPages()))
 
 				bundleWithSubPath := s.getPage(page.KindPage, "lb/index")
