@@ -44,9 +44,6 @@ func initConfig(fs afero.Fs, cfg config.Provider) error {
 		return err
 	}
 
-	if err := modules.ApplyProjectConfigDefaults(cfg, &modConfig); err != nil {
-		return err
-	}
 	workingDir := cfg.GetString("workingDir")
 	themesDir := cfg.GetString("themesDir")
 	if !filepath.IsAbs(themesDir) {
@@ -62,6 +59,10 @@ func initConfig(fs afero.Fs, cfg config.Provider) error {
 
 	moduleConfig, err := modulesClient.Collect()
 	if err != nil {
+		return err
+	}
+
+	if err := modules.ApplyProjectConfigDefaults(cfg, moduleConfig.Modules[len(moduleConfig.Modules)-1]); err != nil {
 		return err
 	}
 

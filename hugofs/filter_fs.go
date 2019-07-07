@@ -25,8 +25,6 @@ import (
 
 	"github.com/gohugoio/hugo/hugofs/files"
 
-	"github.com/pkg/errors"
-
 	"github.com/spf13/afero"
 )
 
@@ -154,7 +152,7 @@ func (fs *FilterFs) LstatIfPossible(name string) (os.FileInfo, bool, error) {
 		return decorateFileInfo(fi, fs, fs.getOpener(name), "", "", nil), false, nil
 	}
 
-	return nil, false, errors.Errorf("filterfs: lstat: files not supported: %q", name)
+	return fi, false, nil
 
 }
 

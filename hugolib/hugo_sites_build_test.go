@@ -2,7 +2,6 @@ package hugolib
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -1259,6 +1258,7 @@ func readSource(t *testing.T, fs *hugofs.Fs, filename string) string {
 }
 
 func readFileFromFs(t testing.TB, fs afero.Fs, filename string) string {
+	t.Helper()
 	filename = filepath.Clean(filename)
 	b, err := afero.ReadFile(fs, filename)
 	if err != nil {
@@ -1280,8 +1280,8 @@ func readFileFromFs(t testing.TB, fs afero.Fs, filename string) string {
 			root = helpers.FilePathSeparator + root
 		}
 
-		helpers.PrintFs(fs, root, os.Stdout)
-		Fatalf(t, "Failed to read file: %s", err)
+		//helpers.PrintFs(fs, root, os.Stdout)
+		t.Fatalf("Failed to read file: %s", err)
 	}
 	return string(b)
 }

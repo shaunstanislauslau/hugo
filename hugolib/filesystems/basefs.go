@@ -288,6 +288,7 @@ func (d *SourceFilesystem) RealDirs(from string) []string {
 func WithBaseFs(b *BaseFs) func(*BaseFs) error {
 	return func(bb *BaseFs) error {
 		bb.theBigFs = b.theBigFs
+		bb.SourceFilesystems = b.SourceFilesystems
 		return nil
 	}
 }
@@ -306,6 +307,10 @@ func NewBase(p *paths.Paths, options ...func(*BaseFs) error) (*BaseFs, error) {
 		if err := opt(b); err != nil {
 			return nil, err
 		}
+	}
+
+	if b.theBigFs != nil && b.SourceFilesystems != nil {
+		return b, nil
 	}
 
 	builder := newSourceFilesystemsBuilder(p, b)

@@ -190,11 +190,6 @@ map[string]interface {}{
   "p1": "p1 main",
   "p2": "p2 main",
   "p3": "p3 theme",
-  "test-theme": map[string]interface {}{
-    "p1": "p1 theme",
-    "p2": "p2 theme",
-    "p3": "p3 theme",
-  },
   "top": "top",
 }`, got["params"])
 
@@ -259,10 +254,6 @@ map[string]interface {}{
     "params": map[string]interface {}{
       "pl1": "p1-en-main",
       "pl2": "p2-en-theme",
-      "test-theme": map[string]interface {}{
-        "pl1": "p1-en-theme",
-        "pl2": "p2-en-theme",
-      },
     },
   },
   "nb": map[string]interface {}{
@@ -277,11 +268,6 @@ map[string]interface {}{
     "params": map[string]interface {}{
       "pl1": "p1-nb-main",
       "pl2": "p2-nb-theme",
-      "test-theme": map[string]interface {}{
-        "pl1": "p1-nb-theme",
-        "pl2": "p2-nb-theme",
-        "top": "top-nb-theme",
-      },
     },
   },
 }

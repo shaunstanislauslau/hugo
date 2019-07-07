@@ -42,10 +42,10 @@ func TestSCSSWithIncludePaths(t *testing.T) {
 	v := viper.New()
 	v.Set("workingDir", workDir)
 	b := newTestSitesBuilder(t).WithLogger(loggers.NewErrorLogger())
-	b.WithViper(v)
-	b.WithWorkingDir(workDir)
 	// Need to use OS fs for this.
 	b.Fs = hugofs.NewDefault(v)
+	b.WithWorkingDir(workDir)
+	b.WithViper(v)
 
 	fooDir := filepath.Join(workDir, "node_modules", "foo")
 	scssDir := filepath.Join(workDir, "assets", "scss")
@@ -97,10 +97,10 @@ func TestSCSSWithThemeOverrides(t *testing.T) {
 	v.Set("workingDir", workDir)
 	v.Set("theme", theme)
 	b := newTestSitesBuilder(t).WithLogger(loggers.NewErrorLogger())
-	b.WithViper(v)
-	b.WithWorkingDir(workDir)
 	// Need to use OS fs for this.
 	b.Fs = hugofs.NewDefault(v)
+	b.WithWorkingDir(workDir)
+	b.WithViper(v)
 
 	fooDir := filepath.Join(workDir, "node_modules", "foo")
 	scssDir := filepath.Join(workDir, "assets", "scss")

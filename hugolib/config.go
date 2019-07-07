@@ -120,22 +120,23 @@ func LoadConfig(d ConfigSourceDescriptor, doWithConfig ...func(cfg config.Provid
 	v.AutomaticEnv()
 	v.SetEnvPrefix("hugo")
 
-	var cerr error
-
 	for _, name := range d.configFilenames() {
 		var filename string
-		if filename, cerr = l.loadConfig(name, v); cerr != nil && cerr != ErrNoConfigFile {
-			return nil, nil, cerr
+		filename, err := l.loadConfig(name, v)
+		if err == nil {
+			configFiles = append(configFiles, filename)
+		} else if err != ErrNoConfigFile {
+			return nil, nil, err
 		}
-		configFiles = append(configFiles, filename)
 	}
 
 	if d.AbsConfigDir != "" {
 		dirnames, err := l.loadConfigFromConfigDir(v)
 		if err == nil {
 			configFiles = append(configFiles, dirnames...)
+		} else if err != ErrNoConfigFile {
+			return nil, nil, err
 		}
-		cerr = err
 	}
 
 	if err := loadDefaultSettingsFor(v); err != nil {
@@ -173,7 +174,7 @@ func LoadConfig(d ConfigSourceDescriptor, doWithConfig ...func(cfg config.Provid
 		configFiles = append(configFiles, modulesConfigFiles...)
 	}
 
-	return v, configFiles, cerr
+	return v, configFiles, nil
 
 }
 
@@ -421,16 +422,6 @@ func (l configLoader) applyThemeConfig(v1 *viper.Viper, theme modules.Module) er
 		l.mergeStringMapKeepLeft("", key, v1, v2)
 	}
 
-	themeLower := strings.ToLower(theme.Path())
-	themeParamsNamespace := paramsKey + "." + themeLower
-
-	// Set namespaced params
-	if v2.IsSet(paramsKey) && !v1.IsSet(themeParamsNamespace) {
-		// Set it in the default store to make sure it gets in the same or
-		// behind the others.
-		v1.SetDefault(themeParamsNamespace, v2.Get(paramsKey))
-	}
-
 	// Only add params and new menu entries, we do not add language definitions.
 	if v1.IsSet(languagesKey) && v2.IsSet(languagesKey) {
 		v1Langs := v1.GetStringMap(languagesKey)
@@ -442,12 +433,6 @@ func (l configLoader) applyThemeConfig(v1 *viper.Viper, theme modules.Module) er
 		for k := range v2Langs {
 			if k == "" {
 				continue
-			}
-			langParamsKey := languagesKey + "." + k + "." + paramsKey
-			langParamsThemeNamespace := langParamsKey + "." + themeLower
-			// Set namespaced params
-			if v2.IsSet(langParamsKey) && !v1.IsSet(langParamsThemeNamespace) {
-				v1.SetDefault(langParamsThemeNamespace, v2.Get(langParamsKey))
 			}
 
 			langMenuKey := languagesKey + "." + k + "." + menuKey

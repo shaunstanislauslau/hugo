@@ -487,10 +487,12 @@ func (s *sitesBuilder) BuildE(cfg BuildCfg) error {
 }
 
 func (s *sitesBuilder) Build(cfg BuildCfg) *sitesBuilder {
+	s.T.Helper()
 	return s.build(cfg, false)
 }
 
 func (s *sitesBuilder) BuildFail(cfg BuildCfg) *sitesBuilder {
+	s.T.Helper()
 	return s.build(cfg, true)
 }
 
@@ -611,14 +613,8 @@ hello:
 }
 
 func (s *sitesBuilder) Fatalf(format string, args ...interface{}) {
-	Fatalf(s.T, format, args...)
-}
-
-func Fatalf(t testing.TB, format string, args ...interface{}) {
-	trace := stackTrace()
-	format = format + "\n%s"
-	args = append(args, trace)
-	t.Fatalf(format, args...)
+	s.T.Helper()
+	s.T.Fatalf(format, args...)
 }
 
 func stackTrace() string {
@@ -654,6 +650,7 @@ func (s *sitesBuilder) FileContent(filename string) string {
 }
 
 func (s *sitesBuilder) AssertObject(expected string, object interface{}) {
+	s.T.Helper()
 	got := s.dumper.Sdump(object)
 	expected = strings.TrimSpace(expected)
 
@@ -762,7 +759,7 @@ func newTestCfg(withConfig ...func(cfg config.Provider) error) (*viper.Viper, *h
 
 func newTestSitesFromConfig(t testing.TB, afs afero.Fs, tomlConfig string, layoutPathContentPairs ...string) (testHelper, *HugoSites) {
 	if len(layoutPathContentPairs)%2 != 0 {
-		Fatalf(t, "Layouts must be provided in pairs")
+		t.Fatalf("Layouts must be provided in pairs")
 	}
 
 	writeToFs(t, afs, filepath.Join("content", ".gitkeep"), "")

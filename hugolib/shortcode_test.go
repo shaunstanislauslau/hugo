@@ -73,7 +73,7 @@ title: "Title"
 	expected = strings.TrimSpace(expected)
 
 	if output != expected {
-		Fatalf(t, "Shortcode render didn't match. got \n%q but expected \n%q", output, expected)
+		t.Fatalf("Shortcode render didn't match. got \n%q but expected \n%q", output, expected)
 	}
 }
 
