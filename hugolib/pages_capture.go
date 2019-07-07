@@ -633,7 +633,7 @@ func (proc *pagesProcessor) newResource(fim hugofs.FileMetaInfo, owner *pageStat
 		return meta.Open()
 	}
 
-	target := strings.TrimPrefix(meta.Path(), owner.Dir())
+	target := strings.TrimPrefix(meta.Path(), owner.File().Dir())
 
 	return owner.s.ResourceSpec.New(
 		resources.ResourceSourceDescriptor{
