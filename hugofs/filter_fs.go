@@ -152,6 +152,8 @@ func (fs *FilterFs) LstatIfPossible(name string) (os.FileInfo, bool, error) {
 		return decorateFileInfo(fi, fs, fs.getOpener(name), "", "", nil), false, nil
 	}
 
+	fs.applyFilters(name, -1, fi)
+
 	return fi, false, nil
 
 }
@@ -216,7 +218,7 @@ func (fs *FilterFs) getOpener(name string) func() (afero.File, error) {
 	}
 }
 
-func (fs *FilterFs) applyFilters(name string, count int, fis []os.FileInfo) ([]os.FileInfo, error) {
+func (fs *FilterFs) applyFilters(name string, count int, fis ...os.FileInfo) ([]os.FileInfo, error) {
 	if fs.applyPerSource != nil {
 		fs.applyPerSource(fs, name, fis)
 	}
@@ -264,7 +266,7 @@ func (f *filterDir) Readdir(count int) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.ffs.applyFilters(f.Name(), count, fis)
+	return f.ffs.applyFilters(f.Name(), count, fis...)
 }
 
 func (f *filterDir) Readdirnames(count int) ([]string, error) {
