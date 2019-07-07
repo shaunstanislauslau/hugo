@@ -269,8 +269,7 @@ if (!doNotTrack) {
     {{ end }}
 </ul>
 {{ end }}`},
-	{`schema.html`, `
-<meta itemprop="name" content="{{ .Title }}">
+	{`schema.html`, `<meta itemprop="name" content="{{ .Title }}">
 <meta itemprop="description" content="{{ with .Description }}{{ . }}{{ else }}{{if .IsPage}}{{ .Summary }}{{ else }}{{ with .Site.Params.description }}{{ . }}{{ end }}{{ end }}{{ end }}">
 
 {{if .IsPage}}{{ $ISO8601 := "2006-01-02T15:04:05-07:00" }}{{ if not .PublishDate.IsZero }}
