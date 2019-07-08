@@ -90,16 +90,17 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 		if language, ok := cfg.(*langs.Language); ok {
 			lang = language.Lang
 		}
+
+		// Static mounts are a little special.
 		if d.component == files.ComponentFolderStatic {
 			var mounts []Mount
-			// Static mounts are a little special.
 			staticDirs := getStaticDirs(cfg)
 			if len(staticDirs) > 0 {
 				componentsConfigured[d.component] = true
 			}
 
 			for _, dir := range staticDirs {
-				mounts = append(mounts, Mount{Lang: lang, Source: dir, Target: files.ComponentFolderStatic})
+				mounts = append(mounts, Mount{Lang: lang, Source: dir, Target: d.component})
 			}
 
 			return mounts
@@ -110,7 +111,8 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 			source := cfg.GetString(d.key)
 			componentsConfigured[d.component] = true
 
-			return []Mount{Mount{Lang: lang,
+			return []Mount{Mount{
+				// No lang set for layouts etc.
 				Source: source,
 				Target: d.component}}
 		}
@@ -121,8 +123,21 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 	createMounts := func(d dirKeyComponent) []Mount {
 		var mounts []Mount
 		if d.multilingual {
-			for _, language := range languages {
-				mounts = append(mounts, createMountsFor(d, language)...)
+			if d.component == files.ComponentFolderContent {
+				seen := make(map[string]bool)
+				for _, language := range languages {
+					contentDir := language.ContentDir
+					if seen[contentDir] {
+						continue
+					}
+					seen[contentDir] = true
+					mounts = append(mounts, Mount{Lang: language.Lang, Source: contentDir, Target: d.component})
+				}
+
+			} else {
+				for _, language := range languages {
+					mounts = append(mounts, createMountsFor(d, language)...)
+				}
 			}
 		} else {
 			mounts = append(mounts, createMountsFor(d, cfg)...)
@@ -135,9 +150,12 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 	var mounts []Mount
 	for _, dirKey := range dirKeys {
 		if componentsConfigured[dirKey.component] {
+
 			continue
 		}
+
 		mounts = append(mounts, createMounts(dirKey)...)
+
 	}
 
 	// Add default configuration
@@ -159,7 +177,7 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 		seen[key] = true
 	}
 
-	moda.mounts = tmp
+	moda.mounts = mounts
 
 	return nil
 }

@@ -294,7 +294,7 @@ func TestPageBundlerSiteMultilingual(t *testing.T) {
 
 				assert.Equal(8, len(s.RegularPages()))
 				assert.Equal(16, len(s.Pages()))
-				dumpPages(s.AllPages()...)
+				//dumpPages(s.AllPages()...)
 				assert.Equal(31, len(s.AllPages()))
 
 				bundleWithSubPath := s.getPage(page.KindPage, "lb/index")
@@ -824,7 +824,7 @@ Content for 은행.
 }
 
 func newTestBundleSourcesMultilingual(t *testing.T) (*hugofs.Fs, *viper.Viper) {
-	cfg, fs := newTestCfg()
+	cfg, fs := newTestCfgBasic()
 
 	workDir := "/work"
 	cfg.Set("workingDir", workDir)

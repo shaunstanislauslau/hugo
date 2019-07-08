@@ -261,7 +261,7 @@ func (c *collector) addAndRecurse(owner *moduleAdapter) error {
 func (c *collector) applyMounts(moduleImport Import, mod *moduleAdapter) error {
 	mounts := moduleImport.Mounts
 
-	if len(mounts) == 0 {
+	if !mod.projectMod && len(mounts) == 0 {
 		modConfig := mod.Config()
 		mounts = modConfig.Mounts
 		if len(mounts) == 0 {

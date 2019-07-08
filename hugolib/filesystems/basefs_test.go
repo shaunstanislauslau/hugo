@@ -322,14 +322,16 @@ func TestStaticFsMultiHost(t *testing.T) {
 	v.Set("workingDir", workDir)
 	v.Set("themesDir", "themes")
 	v.Set("theme", "t1")
-	v.Set("multihost", true)
 	v.Set("defaultContentLanguage", "en")
 
 	langConfig := map[string]interface{}{
 		"no": map[string]interface{}{
 			"staticDir": "static_no",
+			"baseURL":   "https://example.org/no/",
 		},
-		"en": map[string]interface{}{},
+		"en": map[string]interface{}{
+			"baseURL": "https://example.org/en/",
+		},
 	}
 
 	v.Set("languages", langConfig)

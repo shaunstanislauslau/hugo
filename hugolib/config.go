@@ -107,7 +107,10 @@ var ErrNoConfigFile = errors.New("Unable to locate config file or config directo
 
 // LoadConfig loads Hugo configuration into a new Viper and then adds
 // a set of defaults.
+var counter int
+
 func LoadConfig(d ConfigSourceDescriptor, doWithConfig ...func(cfg config.Provider) error) (*viper.Viper, []string, error) {
+
 	if d.Environment == "" {
 		d.Environment = hugo.EnvironmentProduction
 	}
