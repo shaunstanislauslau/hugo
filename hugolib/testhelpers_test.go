@@ -633,6 +633,7 @@ func (s *sitesBuilder) AssertHome(matches ...string) {
 }
 
 func (s *sitesBuilder) AssertFileContent(filename string, matches ...string) {
+	s.T.Helper()
 	filename = filepath.FromSlash(filename)
 	if !strings.HasPrefix(filename, s.workingDir) {
 		filename = filepath.Join(s.workingDir, filename)

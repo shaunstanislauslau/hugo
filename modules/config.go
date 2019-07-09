@@ -134,6 +134,8 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 					mounts = append(mounts, Mount{Lang: language.Lang, Source: contentDir, Target: d.component})
 				}
 
+				componentsConfigured[d.component] = len(seen) > 0
+
 			} else {
 				for _, language := range languages {
 					mounts = append(mounts, createMountsFor(d, language)...)
@@ -141,7 +143,6 @@ func ApplyProjectConfigDefaults(cfg config.Provider, mod Module) error {
 			}
 		} else {
 			mounts = append(mounts, createMountsFor(d, cfg)...)
-
 		}
 
 		return mounts

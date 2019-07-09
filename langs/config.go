@@ -15,6 +15,7 @@ package langs
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -187,7 +188,7 @@ func toSortedLanguages(cfg config.Provider, l map[string]interface{}) (Languages
 			case "weight":
 				language.Weight = cast.ToInt(v)
 			case "contentdir":
-				language.ContentDir = cast.ToString(v)
+				language.ContentDir = filepath.Clean(cast.ToString(v))
 			case "disabled":
 				language.Disabled = cast.ToBool(v)
 			case "params":
