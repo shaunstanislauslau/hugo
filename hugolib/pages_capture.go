@@ -583,9 +583,6 @@ func (proc *pagesProcessor) newPageFromBundle(b *fileinfoBundle) (*pageState, er
 }
 
 func (proc *pagesProcessor) newPageFromFi(fim hugofs.FileMetaInfo, owner *pageState) (*pageState, error) {
-	// TODO(bep) mod remove
-	doDebug := strings.Contains(fim.Name(), "zookeeper")
-
 	fi, err := newFileInfo2(proc.sp, fim)
 	if err != nil {
 		return nil, err
@@ -599,10 +596,6 @@ func (proc *pagesProcessor) newPageFromFi(fim hugofs.FileMetaInfo, owner *pageSt
 	} else {
 		lang := meta.Lang()
 		s = proc.getSite(lang)
-	}
-
-	if doDebug {
-		fmt.Println(s.Lang(), ":::", meta)
 	}
 
 	r := func() (hugio.ReadSeekCloser, error) {
